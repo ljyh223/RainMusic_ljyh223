@@ -42,16 +42,6 @@ object CookieHelper : CookieJar {
                 .value("2.7.1.198277")
                 .build()
         }
-//        if (!cookies.any {
-//                it.name == "MUSIC_U"
-//            }) {
-//            cookies += Cookie.Builder()
-//                .domain("music.163.com")
-//                .name("MUSIC_U")
-                    //cookie 暂时线放这里，之后可以手动添加
-//                .value("1111111111111111111122222222222222223333333333333")
-//                .build()
-//        }
         return cookies.also {
             Log.d(TAG, "loadForRequest: ${cookies.joinToString(separator = ","){it.name}}")
         }

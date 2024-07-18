@@ -9,6 +9,8 @@ sealed class Screen(val route: String) {
     object Playlist : Screen("playlist")
     object Player : Screen("player")
     object DailySong: Screen("dailysong")
+
+    object Setting: Screen("setting")
     object Test : Screen("test")
 
     inline fun navigate(

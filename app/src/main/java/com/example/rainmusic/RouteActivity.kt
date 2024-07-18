@@ -5,8 +5,14 @@ import android.util.Log
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.*
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.CompositionLocalProvider
@@ -19,19 +25,13 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import coil.ImageLoader
 import coil.compose.LocalImageLoader
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import com.example.rainmusic.data.model.MusicInfo
-import dagger.hilt.android.AndroidEntryPoint
-import korlibs.krypto.BuildConfig
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onEach
 import com.example.rainmusic.data.model.UserData
 import com.example.rainmusic.repo.UserRepo
 import com.example.rainmusic.service.MusicService
@@ -40,11 +40,10 @@ import com.example.rainmusic.ui.local.LocalUserData
 import com.example.rainmusic.ui.screen.Screen
 import com.example.rainmusic.ui.screen.dailysong.DailySongScreen
 import com.example.rainmusic.ui.screen.index.IndexScreen
-import com.example.rainmusic.ui.screen.login.LoginScreen
 import com.example.rainmusic.ui.screen.player.PlayerScreen
 import com.example.rainmusic.ui.screen.playlist.PlaylistScreen
 import com.example.rainmusic.ui.screen.search.SearchScreen
-import com.example.rainmusic.ui.screen.test.TestScreen
+import com.example.rainmusic.ui.screen.setting.SettingScreen
 import com.example.rainmusic.ui.states.asyncGetSessionPlayer
 import com.example.rainmusic.ui.theme.RainMusicTheme
 import com.example.rainmusic.util.DataState
@@ -53,6 +52,11 @@ import com.example.rainmusic.util.defaultEnterTransition
 import com.example.rainmusic.util.defaultPopExitTransition
 import com.example.rainmusic.util.sharedPreferencesOf
 import com.example.rainmusic.util.toast
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
 import okhttp3.OkHttpClient
 import javax.inject.Inject
 
@@ -141,6 +145,11 @@ class RouteActivity : ComponentActivity() {
                             SearchScreen()
                         }
 
+                        composable(Screen.Setting.route) {
+                            SettingScreen()
+                        }
+
+
                         composable(
                             route = "${Screen.Playlist.route}/{id}",
                             arguments = listOf(
@@ -221,13 +230,13 @@ class RouteActivity : ComponentActivity() {
 
         }
         // 自动签到
-        userRepo.dailySign().onEach {
-            if (it is DataState.Success) {
-                it.readSafely()?.code?.takeIf { code -> code == 200 }?.let {
-                    toast("自动签到成功！")
-                }
-            }
-        }.launchIn(lifecycleScope)
+//        userRepo.dailySign().onEach {
+//            if (it is DataState.Success) {
+//                it.readSafely()?.code?.takeIf { code -> code == 200 }?.let {
+//                    toast("自动签到成功！")
+//                }
+//            }
+//        }.launchIn(lifecycleScope)
 
         // 检查身份信息
         combine(

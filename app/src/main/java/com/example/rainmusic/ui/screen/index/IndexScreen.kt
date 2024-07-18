@@ -1,52 +1,67 @@
 package com.example.rainmusic.ui.screen.index
 
-import android.net.Uri
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.Recommend
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.material.icons.automirrored.rounded.FeaturedPlayList
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.media3.common.MediaItem
 import coil.compose.rememberAsyncImagePainter
-import kotlinx.coroutines.launch
+import com.example.myapplication.R
 import com.example.rainmusic.RouteActivity
-import com.example.rainmusic.ui.component.*
+import com.example.rainmusic.ui.component.AppBarStyle
+import com.example.rainmusic.ui.component.NetworkIssueBanner
+import com.example.rainmusic.ui.component.RainBottomNavigation
+import com.example.rainmusic.ui.component.RainTopBar
 import com.example.rainmusic.ui.local.LocalNavController
 import com.example.rainmusic.ui.local.LocalUserData
 import com.example.rainmusic.ui.screen.Screen
-import com.example.rainmusic.ui.screen.index.page.DiscoverPage
 import com.example.rainmusic.ui.screen.index.page.IndexPage
 import com.example.rainmusic.ui.screen.index.page.LibraryPage
-import com.example.myapplication.R
-import com.example.rainmusic.data.model.MusicInfo
-import com.example.rainmusic.service.MusicService
-import com.example.rainmusic.ui.states.asyncGetSessionPlayer
 import com.example.rainmusic.util.DataState
-import com.example.rainmusic.util.RainMusicProtocol
-import com.example.rainmusic.util.media.buildMediaItem
-import com.example.rainmusic.util.media.metadata
-import com.example.rainmusic.util.sharedPreferencesOf
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalFoundationApi::class)
+
 @ExperimentalAnimationApi
 @ExperimentalMaterial3Api
 @Composable
@@ -54,20 +69,9 @@ fun IndexScreen(
     indexViewModel: IndexViewModel = hiltViewModel<IndexViewModel>()
 ) {
     val navController = LocalNavController.current
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val pagerState = rememberPagerState(pageCount = { 3 })
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    LaunchedEffect(key1 = 1) {
+    val pagerState = rememberPagerState(pageCount = { 2 })
 
-    }
     Scaffold(
-        topBar = {
-            IndexTopBar(
-                indexViewModel = indexViewModel,
-                scrollBehavior = scrollBehavior,
-                drawerState = drawerState
-            )
-        },
         bottomBar = {
             BottomNavigationBar(
                 pagerState = pagerState
@@ -96,14 +100,9 @@ fun IndexScreen(
                     }
 
                     1 -> {
-                        DiscoverPage(indexViewModel)
+                        LibraryPage(indexViewModel)
                     }
 
-                    2 -> {
-                        RequireLoginVisible {
-                            LibraryPage(indexViewModel)
-                        }
-                    }
                 }
             }
         }
@@ -190,29 +189,13 @@ private fun BottomNavigationBar(
             }
         )
 
+
         NavigationBarItem(
             selected = pagerState.currentPage == 1,
             onClick = {
                 scope.launch {
                     pagerState.animateScrollToPage(
                         page = 1
-                    )
-                }
-            },
-            icon = {
-                Icon(Icons.AutoMirrored.Rounded.FeaturedPlayList, null)
-            },
-            label = {
-                Text(text = "发现")
-            }
-        )
-
-        NavigationBarItem(
-            selected = pagerState.currentPage == 2,
-            onClick = {
-                scope.launch {
-                    pagerState.animateScrollToPage(
-                        page = 2
                     )
                 }
             },

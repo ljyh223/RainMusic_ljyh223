@@ -116,6 +116,14 @@ dependencies {
 
     implementation(libs.palette)
 
+
+    implementation(libs.composeSettings.ui.m3)
+//    implementation(libs.composeSettings.ui.tiles)
+//    implementation(libs.composeSettings.ui.extended)
+    implementation(libs.composeSettings.storange.preferences)
+    implementation(libs.composeSettings.storange.base)
+
+
     kapt(libs.hilt.compiler)
     ksp(libs.androidx.room.compiler)
 

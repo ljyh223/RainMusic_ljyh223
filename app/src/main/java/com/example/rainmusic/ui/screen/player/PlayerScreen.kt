@@ -1,13 +1,20 @@
 package com.example.rainmusic.ui.screen.player
 
 import android.annotation.SuppressLint
+import android.provider.ContactsContract.CommonDataKinds.Identity.IDENTITY
 import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.InfiniteRepeatableSpec
+import androidx.compose.animation.core.InfiniteTransition
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -31,8 +38,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
-import androidx.compose.material.Slider
-import androidx.compose.material.SliderDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
@@ -53,9 +58,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,7 +80,10 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -83,6 +94,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.rainmusic.data.retrofit.api.model.parse
 import com.example.rainmusic.service.MusicService
@@ -98,6 +110,7 @@ import com.example.rainmusic.util.calculateScaleToFit
 import com.example.rainmusic.util.color.getImageDominantColor
 import com.example.rainmusic.util.dp2px
 import com.example.rainmusic.util.formatAsPlayerTime
+import com.example.rainmusic.util.sharedPreferencesOf
 import com.example.rainmusic.util.smallImage
 import com.smarttoolfactory.slider.ColorfulSlider
 import com.smarttoolfactory.slider.MaterialSliderDefaults
@@ -148,7 +161,7 @@ private fun NotConnectScreen() {
     }
 }
 
-@SuppressLint("UnusedBoxWithConstraintsScope")
+@SuppressLint("UnusedBoxWithConstraintsScope", "UnrememberedMutableState")
 @ExperimentalMaterial3Api
 @Composable
 private fun PlayerUI(
@@ -161,6 +174,7 @@ private fun PlayerUI(
     val progress = rememberPlayProgress(player)
     val isPlaying = rememberPlayState(player)
     var containerColor by remember { mutableStateOf(Color.Unspecified) }
+
     val angle = remember { Animatable(0f) }
 
 
@@ -168,6 +182,7 @@ private fun PlayerUI(
     val scope = rememberCoroutineScope()
     // 加载音乐信息
     LaunchedEffect(currentMediaItem) {
+        Log.d("PlayerUI", "加载音乐信息")
         playerScreenViewModel.loadMusicDetail(currentMediaItem?.mediaId?.toLong() ?: 0L)
 
         musicDetail.readSafely()?.let {
@@ -178,6 +193,7 @@ private fun PlayerUI(
             }
         }
     }
+
 
     Scaffold(
         topBar = {
@@ -221,29 +237,47 @@ private fun PlayerUI(
         },
 
         ) {
-
-
-        AsyncImage(
+        val backdropImage = rememberAsyncImagePainter(
             model = ImageRequest.Builder(context)
                 .data(musicDetail.readSafely()?.songs?.get(0)?.al?.picUrl?.smallImage())
                 .transformations(BlurTransformation(context, radius = 25f))
+                .build()
+        )
 
-                .build(),
+
+        val backdropColorFilter = remember {
+            val cm=ColorMatrix(
+                floatArrayOf(
+                    2f, 0f, 0f, 0f, 0f, // 红色通道的亮度增加
+                    0f, 2f, 0f, 0f, 0f, // 绿色通道的亮度增加
+                    0f, 0f, 2f, 0f, 0f, // 蓝色通道的亮度增加
+                    0f, 0f, 0f, 1f, 0f    // 透明度保持不变
+                )
+            )
+            cm.setToSaturation(2.5f)
+            ColorFilter.colorMatrix(cm)
+        }
+
+        Image(
+            painter = backdropImage,
             modifier = Modifier
                 .fillMaxSize()
                 .scale(scale = calculateScaleToFit())
-                .graphicsLayer { rotationZ = angle.value },
-            contentDescription = null
+                .graphicsLayer { rotationZ = angle.value + 90f },
+            colorFilter = backdropColorFilter,
+            contentDescription = null,
         )
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(0.6f) // 调整透明度
-                .background(Color.Black)
+                .alpha(0.5f) // 调整透明度
+                .background(if (isSystemInDarkTheme()) Color.Black else Color.White)
         )
+
+
         LaunchedEffect(isPlaying) {
             if (isPlaying == true) {
-
                 // 创建一个无限循环的旋转动画
                 angle.animateTo(
                     targetValue = angle.value + 360f,
@@ -264,21 +298,24 @@ private fun PlayerUI(
                 // 封面
 
                 0 -> {
+                    val cover = rememberAsyncImagePainter(
+                        model = ImageRequest.Builder(context)
+                            .data(musicDetail.readSafely()?.songs?.get(0)?.al?.picUrl)
+                            .build()
+                    )
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         musicDetail.readSafely()?.songs?.get(0)?.al?.picUrl?.let { it1 ->
-                            Log.d("Cover",
+                            Log.d(
+                                "Cover",
                                 it1
                             )
                         }
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(musicDetail.readSafely()?.songs?.get(0)?.al?.picUrl)
-                                .build(),
+                        Image(
+                            painter =cover,
                             modifier = Modifier
-
                                 .graphicsLayer { rotationZ = angle.value }
                                 .clip(CircleShape)
                                 .fillMaxWidth(0.75f)
@@ -293,13 +330,10 @@ private fun PlayerUI(
 
                     val lyric by playerScreenViewModel.lyric.collectAsState()
                     val lyricLines = lyric.readSafely()?.parse() ?: emptyList()
-                    val textSize = remember { 20 }
-                    val paddingWidth = remember {
-                        32.dp
+                    val lyricSharedPreferences = remember {
+                        sharedPreferencesOf("lyric")
                     }
-                    val textColor = remember {
-                        Color.Black
-                    }
+
 
                     var currentLyricIndex by remember {
                         mutableIntStateOf(0)
@@ -314,8 +348,7 @@ private fun PlayerUI(
                             Text(
                                 text = "暂无歌词",
                                 modifier = Modifier.align(Alignment.Center),
-                                color = textColor,
-                                fontSize = textSize.textDp
+                                fontSize = lyricSharedPreferences.getInt("fontSize", 26).textDp
                             )
                         }
                     } else {
@@ -338,32 +371,47 @@ private fun PlayerUI(
                             // 歌词主体
                             val lyricsEntryListItems: (LazyListScope.() -> Unit) = {
                                 itemsIndexed(lyricLines) { index, lyric ->
-                                    LyricsItem(
-                                        lyricsEntry = lyric,
-                                        current = currentLyricIndex == index,
-                                        currentTextElementHeightPxState = currentTextElementHeightPx,
-                                        textSize = textSize,
-                                        centerAlign = true,
-                                        showSubText = true,
-                                        onClick = {
-                                            lyricLines.indexOfFirst { l ->
-                                                l == lyric
-                                            }.takeIf { i -> i > 0 }?.let { index ->
-                                                Log.d("LyricsItem", "也是找到了，好吧 --> $index")
-                                                currentLyricIndex = index
-                                                player.seekTo(
-                                                    lyricLines[index].time
-                                                )
+                                    key(lyric.time) {
+                                        LyricsItem(
+                                            lyricsEntry = lyric,
+                                            current = currentLyricIndex == index,
+                                            currentTextElementHeightPxState = currentTextElementHeightPx,
+                                            textSize = lyricSharedPreferences.getInt(
+                                                "fontSize",
+                                                26
+                                            ),
+                                            textBold = lyricSharedPreferences.getBoolean(
+                                                "textBold",
+                                                true
+                                            ),
+                                            centerAlign = lyricSharedPreferences.getBoolean(
+                                                "lyricCenter",
+                                                true
+                                            ),
+                                            showSubText = true,
+                                            onClick = {
+                                                lyricLines.indexOfFirst { l ->
+                                                    l == lyric
+                                                }.takeIf { i -> i > 0 }?.let { index ->
+                                                    Log.d(
+                                                        "LyricsItem",
+                                                        "也是找到了，好吧 --> $index"
+                                                    )
+                                                    currentLyricIndex = index
+                                                    player.seekTo(
+                                                        lyricLines[index].time
+                                                    )
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
                             LazyColumn(
                                 Modifier
                                     .fillMaxWidth()
                                     .fillMaxHeight()
-                                    .padding(paddingWidth, 0.dp)
+                                    .padding(32.dp, 0.dp)
                                     .graphicsLayer { alpha = 0.99F }
                                     .drawWithContent {
                                         val colors = listOf(
@@ -532,20 +580,6 @@ private fun BottomBar(
                 },
                 colors = MaterialSliderDefaults.materialColors()
             )
-//            Slider(
-//                modifier = Modifier.weight(1f),
-//                value = valueChanger,
-//                onValueChange = {
-//                    valueChanger = it
-//                },
-//                onValueChangeFinished = {
-//                    player.seekTo(
-//                        (valueChanger * (progress?.second ?: 0L))
-//                            .roundToLong()
-//                            .coerceAtLeast(0L)
-//                    )
-//                }
-//            )
             Text(text = progress?.second?.formatAsPlayerTime() ?: "00:00")
         }
         // 播放控制栏
@@ -587,6 +621,7 @@ private fun BottomBar(
 
             IconButton(onClick = {
                 player.seekToNextMediaItem()
+
             }) {
                 Icon(
                     modifier = Modifier.size(72.dp),

@@ -2,8 +2,11 @@ package com.example.rainmusic.ui.screen.index.page
 
 
 import android.util.Log
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,9 +23,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -38,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,6 +60,8 @@ import com.example.myapplication.R
 import com.example.rainmusic.data.model.DailyImage
 import com.example.rainmusic.data.model.MusicInfo
 import com.example.rainmusic.data.retrofit.weapi.model.PersonalizedPlaylist
+import com.example.rainmusic.ui.component.AppBarStyle
+import com.example.rainmusic.ui.component.RainTopBar
 import com.example.rainmusic.ui.component.shimmerPlaceholder
 import com.example.rainmusic.ui.local.LocalNavController
 import com.example.rainmusic.ui.local.LocalUserData
@@ -60,42 +73,68 @@ import com.example.rainmusic.util.DataState
 import com.example.rainmusic.util.RainMusicProtocol
 import com.example.rainmusic.util.color.getImageDominantColor
 import com.example.rainmusic.util.getGreeting
+import com.example.rainmusic.util.largeImage
+import com.example.rainmusic.util.middleImage
 import com.example.rainmusic.util.sdf_
+import com.example.rainmusic.util.smallImage
 import kotlinx.coroutines.launch
 
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
+    ExperimentalAnimationApi::class
+)
 @Composable
 fun IndexPage(
     indexViewModel: IndexViewModel
 ) {
     val recommendStatus by indexViewModel.personalizedPlaylist.collectAsState()
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val userData = LocalUserData.current
     LaunchedEffect(userData) {
         Log.d("IndexPage", recommendStatus.notLoaded().toString())
-        if (recommendStatus.notLoaded()) {
-            indexViewModel.refreshIndexPage()
+        indexViewModel.getAccountDetails()
+        if(!userData.isVisitor){
+            if (recommendStatus.notLoaded()) {
+                indexViewModel.refreshIndexPage()
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            HomeTopBar(
+                scrollBehavior = scrollBehavior
+            )
+        }
+    ){
+
+
+        if(!userData.isVisitor){
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(it),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(16.dp)
+            ) {
+                item {
+                    LargeButton(indexViewModel)
+                }
+
+                item {
+                    RecommendSong(indexViewModel)
+                }
+
+                item {
+                    RecommendPlayLists(indexViewModel)
+                }
+            }
+        }else{
+            Text("请先设置Cookie")
         }
     }
 
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(16.dp)
-    ) {
-        item {
-            LargeButton(indexViewModel)
-        }
-
-        item {
-            RecommendSong(indexViewModel)
-        }
-
-        item {
-            RecommendPlayLists(indexViewModel)
-        }
-    }
-    Log.d("IndexPage", "ok")
 
 }
 
@@ -172,7 +211,7 @@ private fun PlaylistCard(
     ) {
         AsyncImage(
             model = ImageRequest.Builder(context)
-                .data(playlist.picUrl)
+                .data(playlist.picUrl.largeImage())
                 .size(Size.ORIGINAL) // 根据需要调整大小
                 .build(),
             modifier = Modifier
@@ -196,6 +235,7 @@ fun LargeButton(indexViewModel: IndexViewModel) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        val userData = LocalUserData.current
 
         Text(text = getGreeting(), style = MaterialTheme.typography.headlineSmall)
 //         日推
@@ -203,23 +243,28 @@ fun LargeButton(indexViewModel: IndexViewModel) {
 //         私人FM
 //        val fmSongs by indexViewModel.fmSongs.collectAsState()
 
+
+
         val homePageBlocks by indexViewModel.homePageBlocks.collectAsState()
+
         var dailyCover = ""
         val sdf = sdf_
-        val dailyImage by indexViewModel.getDailyImage(sdf_).collectAsState(initial = null)
+        val dailyImage by indexViewModel.getDailyImage(sdf).collectAsState(initial = null)
         if (dailyImage == null) {
             Log.d("dailyImage", "null")
-            val dailSongs by indexViewModel.dailySongs.collectAsState()
-            when (dailSongs) {
-                is DataState.Success -> {
-                    dailyCover = dailSongs.read().data.dailySongs[0].al.picUrl
-                    indexViewModel.insertDailyImage(DailyImage(sdf, dailyCover))
+                val dailSongs by indexViewModel.dailySongs.collectAsState()
+                when (dailSongs) {
+                    is DataState.Success -> {
+                        dailyCover = dailSongs.read().data.dailySongs[0].al.picUrl
+                        indexViewModel.insertDailyImage(DailyImage(sdf, dailyCover))
+                    }
+
+                    DataState.Empty -> {}
+                    is DataState.Error -> {}
+                    DataState.Loading -> {}
                 }
 
-                DataState.Empty -> {}
-                is DataState.Error -> {}
-                DataState.Loading -> {}
-            }
+
         } else {
             Log.d("dailyImage", "")
             dailyCover = dailyImage!!.imageUrl
@@ -229,14 +274,18 @@ fun LargeButton(indexViewModel: IndexViewModel) {
             modifier = Modifier
                 .fillMaxWidth()
         ) {
-            item {
-                RecommendCard(
-                    picUrl = dailyCover,
-                    title = "每日推荐",
-                ) {
-                    Screen.DailySong.navigate(navController)
+            if(userData.isVisitor){
+                item {
+
+                    RecommendCard(
+                        picUrl = dailyCover.largeImage(),
+                        title = "每日推荐",
+                    ) {
+                        Screen.DailySong.navigate(navController)
+                    }
                 }
             }
+
 
 
 //            when (fmSongs) {
@@ -269,7 +318,7 @@ fun LargeButton(indexViewModel: IndexViewModel) {
                     val twoBlocks = homePage.data.blocks[1].creatives
                     items(twoBlocks) {
                         RecommendCard(
-                            it.resources[0].uiElement.image.imageUrl,
+                            it.resources[0].uiElement.image.imageUrl.largeImage(),
                             it.resources[0].uiElement.mainTitle.title,
                         ) {
                             Screen.Playlist.navigate(navController) {
@@ -280,7 +329,7 @@ fun LargeButton(indexViewModel: IndexViewModel) {
                     items(oneBlocks) {
                         Log.d("RecommendCard", it.toString())
                         RecommendCard(
-                            it.resources[0].uiElement.image.imageUrl,
+                            it.resources[0].uiElement.image.imageUrl.largeImage(),
                             it.resources[0].uiElement.mainTitle.title,
                         ) {
                             Screen.Playlist.navigate(navController) {
@@ -432,7 +481,7 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
                         ) {
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
-                                    .data(dailSongs.read().data.dailySongs[0].al.picUrl)
+                                    .data(dailSongs.read().data.dailySongs[0].al.picUrl.middleImage())
                                     .size(Size.ORIGINAL) // 根据需要调整大小
                                     .build(),
                                 modifier = Modifier
@@ -440,20 +489,22 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
                                     .padding(6.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable {
-                                        val track=dailSongs.read().data.dailySongs[0]
-                                        playMusic(context, MusicInfo(
-                                            id = track.id,
-                                            name = track.name,
-                                            artist = track.ar.joinToString { it.name },
-                                            musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                                            artworkUrl = track.al.picUrl
-                                        ))
+                                        val track = dailSongs.read().data.dailySongs[0]
+                                        playMusic(
+                                            context, MusicInfo(
+                                                id = track.id,
+                                                name = track.name,
+                                                artist = track.ar.joinToString { it.name },
+                                                musicUrl = "$RainMusicProtocol://music?id=${track.id}",
+                                                artworkUrl = track.al.picUrl
+                                            )
+                                        )
                                     },
                                 contentDescription = null
                             )
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
-                                    .data(dailSongs.read().data.dailySongs[1].al.picUrl)
+                                    .data(dailSongs.read().data.dailySongs[1].al.picUrl.middleImage())
                                     .size(Size.ORIGINAL) // 根据需要调整大小
                                     .build(),
                                 modifier = Modifier
@@ -461,14 +512,16 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
                                     .padding(6.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable {
-                                        val track=dailSongs.read().data.dailySongs[1]
-                                        playMusic(context, MusicInfo(
-                                            id = track.id,
-                                            name = track.name,
-                                            artist = track.ar.joinToString { it.name },
-                                            musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                                            artworkUrl = track.al.picUrl
-                                        ))
+                                        val track = dailSongs.read().data.dailySongs[1]
+                                        playMusic(
+                                            context, MusicInfo(
+                                                id = track.id,
+                                                name = track.name,
+                                                artist = track.ar.joinToString { it.name },
+                                                musicUrl = "$RainMusicProtocol://music?id=${track.id}",
+                                                artworkUrl = track.al.picUrl
+                                            )
+                                        )
                                     },
                                 contentDescription = null
                             )
@@ -476,7 +529,7 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
 
                         AsyncImage(
                             model = ImageRequest.Builder(context)
-                                .data(dailSongs.read().data.dailySongs[2].al.picUrl)
+                                .data(dailSongs.read().data.dailySongs[2].al.picUrl.largeImage())
                                 .size(Size.ORIGINAL) // 根据需要调整大小
                                 .build(),
                             modifier = Modifier
@@ -485,14 +538,16 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
                                 .padding(6.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .clickable {
-                                    val track=dailSongs.read().data.dailySongs[2]
-                                    playMusic(context, MusicInfo(
-                                        id = track.id,
-                                        name = track.name,
-                                        artist = track.ar.joinToString { it.name },
-                                        musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                                        artworkUrl = track.al.picUrl
-                                    ))
+                                    val track = dailSongs.read().data.dailySongs[2]
+                                    playMusic(
+                                        context, MusicInfo(
+                                            id = track.id,
+                                            name = track.name,
+                                            artist = track.ar.joinToString { it.name },
+                                            musicUrl = "$RainMusicProtocol://music?id=${track.id}",
+                                            artworkUrl = track.al.picUrl
+                                        )
+                                    )
                                 },
                             contentDescription = null
                         )
@@ -504,7 +559,7 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
                         for (i in 3..7) {
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
-                                    .data(dailSongs.read().data.dailySongs[i].al.picUrl)
+                                    .data(dailSongs.read().data.dailySongs[i].al.picUrl.middleImage())
                                     .size(Size.ORIGINAL) // 根据需要调整大小
                                     .build(),
                                 modifier = Modifier
@@ -513,14 +568,16 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
                                     .padding(4.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable {
-                                        val track=dailSongs.read().data.dailySongs[i]
-                                        playMusic(context, MusicInfo(
-                                            id = track.id,
-                                            name = track.name,
-                                            artist = track.ar.joinToString { it.name },
-                                            musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                                            artworkUrl = track.al.picUrl
-                                        ))
+                                        val track = dailSongs.read().data.dailySongs[i]
+                                        playMusic(
+                                            context, MusicInfo(
+                                                id = track.id,
+                                                name = track.name,
+                                                artist = track.ar.joinToString { it.name },
+                                                musicUrl = "$RainMusicProtocol://music?id=${track.id}",
+                                                artworkUrl = track.al.picUrl
+                                            )
+                                        )
                                     },
                                 contentDescription = null
                             )
@@ -543,3 +600,33 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
 
 
 
+@ExperimentalFoundationApi
+@ExperimentalAnimationApi
+@ExperimentalMaterial3Api
+@Composable
+private fun HomeTopBar(
+    scrollBehavior: TopAppBarScrollBehavior
+) {
+    val navController = LocalNavController.current
+    RainTopBar(
+
+        title = {
+            Text(text = stringResource(R.string.app_name))
+
+        },
+        actions = {
+            Icon(
+                modifier = Modifier
+                    .combinedClickable(
+                        onClick = {
+                            navController.navigate(Screen.Search.route)
+                        }
+                    ),
+                imageVector = Icons.Rounded.Search,
+                contentDescription = "Search"
+            )
+        },
+        appBarStyle = AppBarStyle.Small,
+        scrollBehavior = scrollBehavior
+    )
+}

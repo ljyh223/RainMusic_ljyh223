@@ -1,6 +1,6 @@
 package com.example.rainmusic.ui.screen.search
 
-import android.annotation.SuppressLint
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import com.example.rainmusic.ui.component.PopBackIcon
 import com.example.rainmusic.ui.component.RainTopBar
 
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @ExperimentalMaterial3Api
 @Composable
 fun SearchScreen() {
@@ -30,7 +29,31 @@ fun SearchScreen() {
             )
         }
     ) {
-        Body()
+        Column(
+            modifier = Modifier
+                .padding(it)
+        ) {
+            var query by remember {
+                mutableStateOf("")
+            }
+            OutlinedTextField(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                value = query,
+                onValueChange = {
+                    query = it
+                },
+                placeholder = {
+                    Text(text = "尝试搜索一下吧 (●'◡'●)")
+                },
+                trailingIcon = {
+                    IconButton(onClick = { /*TODO*/ }) {
+                        Icon(Icons.Rounded.Search, null)
+                    }
+                }
+            )
+        }
     }
 }
 

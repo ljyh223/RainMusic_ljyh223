@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import com.example.rainmusic.data.model.Playlists
+import com.example.rainmusic.data.retrofit.api.model.AccountDetail
 import com.example.rainmusic.data.retrofit.api.model.DailyRecommendSongs
 import com.example.rainmusic.data.retrofit.api.model.HighQualityPlaylist
 import com.example.rainmusic.data.retrofit.api.model.Toplists
@@ -36,7 +37,7 @@ import javax.inject.Inject
 @HiltViewModel
 class IndexViewModel @Inject constructor(
     private val userRepo: UserRepo,
-    val musicRepo: MusicRepo,
+     val musicRepo: MusicRepo,
     private val yiYanRepo: YiYanRepo,
     private val imageColorRepository: ImageColorRepository,
     private val dailyImageRepository: DailyImageRepository
@@ -63,6 +64,8 @@ class IndexViewModel @Inject constructor(
 
     // library page
     val userPlaylist: MutableStateFlow<DataState<UserPlaylists>> = MutableStateFlow(DataState.Empty)
+
+    val accountDetails:MutableStateFlow<DataState<AccountDetail>> = MutableStateFlow(DataState.Empty)
 
 
     fun getImageColor(url: String): Flow<ImageColor?> {
@@ -162,6 +165,12 @@ class IndexViewModel @Inject constructor(
             limit = 1000
         ).onEach {
             userPlaylist.value = it
+        }.launchIn(viewModelScope)
+    }
+
+    fun getAccountDetails(){
+        userRepo.getAccountDetail().onEach {
+            accountDetails.value=it
         }.launchIn(viewModelScope)
     }
 }

@@ -17,8 +17,11 @@ fun String.smallImage():String{
 
     return "$this?param=100y100"
 }
-
 fun String.middleImage():String{
+    return "$this?param=300y300"
+}
+
+fun String.largeImage():String{
 
     return "$this?param=500y500"
 }

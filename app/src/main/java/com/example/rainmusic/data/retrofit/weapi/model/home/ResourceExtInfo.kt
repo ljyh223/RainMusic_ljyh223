@@ -15,7 +15,7 @@ data class ResourceExtInfo(
     @SerializedName("highQuality")
     val highQuality: Boolean,
     @SerializedName("playCount")
-    val playCount: Int,
+    val playCount: Long,
     @SerializedName("song")
     val song: Song,
     @SerializedName("songData")

@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -29,10 +30,13 @@ import com.example.rainmusic.data.retrofit.api.model.LyricLine
  *
  * @param lyricsEntry 歌词 [LyricsEntry]
  * @param current 是否为当前播放
+ * @param currentTextElementHeightPxState 当前高亮歌词 Item 高度
  * @param textSize 字体大小
+ * @param textBold 是否加粗
  * @param textColor 字体颜色
  * @param centerAlign 是否居中对齐
  * @param showSubText 是否显示翻译
+ * @param onClick 点击事件
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -41,6 +45,7 @@ fun LazyItemScope.LyricsItem(
     current: Boolean = false,
     currentTextElementHeightPxState: MutableState<Int>,
     textSize: Int,
+    textBold:Boolean,
     centerAlign: Boolean = false,
     showSubText: Boolean = true,
     onClick: () -> Unit
@@ -51,7 +56,13 @@ fun LazyItemScope.LyricsItem(
     val textAlpha = animateFloatAsState(if (current) 1F else 0.32F, label = "").value
     // 歌词文本对齐方式，可选左 / 中
     val align = if (centerAlign) TextAlign.Center else TextAlign.Left
-    val fontWeight=if (current) FontWeight.Bold else LocalTextStyle.current.fontWeight
+    val fontWeight:FontWeight
+    fontWeight = if(textBold){
+        if (current) FontWeight.W800 else FontWeight.W600
+    }else{
+        if (current) FontWeight.Bold else FontWeight.Normal
+    }
+
     Card(
 
         modifier = Modifier
@@ -90,7 +101,8 @@ fun LazyItemScope.LyricsItem(
                 text = lyricsEntry.lyric,
                 fontSize = mainTextSize,
                 textAlign = align,
-                fontWeight = fontWeight
+                fontWeight = fontWeight,
+                lineHeight = mainTextSize * 1.5F
             )
 
 
@@ -103,7 +115,8 @@ fun LazyItemScope.LyricsItem(
                     text = lyricsEntry.translation?:"",
                     fontSize = mainTextSize,
                     textAlign = align,
-                    fontWeight = fontWeight
+                    fontWeight = fontWeight,
+                    lineHeight = mainTextSize * 1.5F
                 )
             }
 
