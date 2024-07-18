@@ -4,9 +4,10 @@
 
 
 
-因为有些地方还不是很好，所以，还请自己打包。记得取消注释并添加上你的网易云cookie
+因为有些地方还不是很好，所以，还请自己打包。可以在设置中填入你的网易云cookie中的MUSIC_U字段，并退出重新进去即可。
 
-![](E:\code\android\RainMusic_ljyh223\preview\cookie.png)
+如果有bug，欢迎提交issues。如果代码如不了眼，也可以来pr。欢迎~
+
 
 部分效果图
 
