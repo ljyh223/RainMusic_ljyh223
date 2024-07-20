@@ -61,12 +61,12 @@ import com.example.rainmusic.data.model.DailyImage
 import com.example.rainmusic.data.model.MusicInfo
 import com.example.rainmusic.data.retrofit.weapi.model.PersonalizedPlaylist
 import com.example.rainmusic.ui.component.AppBarStyle
+import com.example.rainmusic.ui.component.PlayerBottomBar
 import com.example.rainmusic.ui.component.RainTopBar
 import com.example.rainmusic.ui.component.shimmerPlaceholder
 import com.example.rainmusic.ui.local.LocalNavController
 import com.example.rainmusic.ui.local.LocalUserData
 import com.example.rainmusic.ui.screen.Screen
-import com.example.rainmusic.ui.screen.dailysong.playMusic
 import com.example.rainmusic.ui.screen.dailysong.playMusics
 import com.example.rainmusic.ui.screen.index.IndexViewModel
 import com.example.rainmusic.util.DataState
@@ -80,7 +80,8 @@ import com.example.rainmusic.util.smallImage
 import kotlinx.coroutines.launch
 
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
+@OptIn(
+    ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
     ExperimentalAnimationApi::class
 )
 @Composable
@@ -93,7 +94,7 @@ fun IndexPage(
     LaunchedEffect(userData) {
         Log.d("IndexPage", recommendStatus.notLoaded().toString())
         indexViewModel.getAccountDetails()
-        if(!userData.isVisitor){
+        if (!userData.isVisitor) {
             if (recommendStatus.notLoaded()) {
                 indexViewModel.refreshIndexPage()
             }
@@ -105,11 +106,15 @@ fun IndexPage(
             HomeTopBar(
                 scrollBehavior = scrollBehavior
             )
+        },
+
+        bottomBar = {
+            PlayerBottomBar()
         }
-    ){
+    ) {
 
 
-        if(!userData.isVisitor){
+        if (!userData.isVisitor) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -129,11 +134,10 @@ fun IndexPage(
                     RecommendPlayLists(indexViewModel)
                 }
             }
-        }else{
+        } else {
             Text("请先设置Cookie")
         }
     }
-
 
 
 }
@@ -244,7 +248,6 @@ fun LargeButton(indexViewModel: IndexViewModel) {
 //        val fmSongs by indexViewModel.fmSongs.collectAsState()
 
 
-
         val homePageBlocks by indexViewModel.homePageBlocks.collectAsState()
 
         var dailyCover = ""
@@ -252,17 +255,17 @@ fun LargeButton(indexViewModel: IndexViewModel) {
         val dailyImage by indexViewModel.getDailyImage(sdf).collectAsState(initial = null)
         if (dailyImage == null) {
             Log.d("dailyImage", "null")
-                val dailSongs by indexViewModel.dailySongs.collectAsState()
-                when (dailSongs) {
-                    is DataState.Success -> {
-                        dailyCover = dailSongs.read().data.dailySongs[0].al.picUrl
-                        indexViewModel.insertDailyImage(DailyImage(sdf, dailyCover))
-                    }
-
-                    DataState.Empty -> {}
-                    is DataState.Error -> {}
-                    DataState.Loading -> {}
+            val dailSongs by indexViewModel.dailySongs.collectAsState()
+            when (dailSongs) {
+                is DataState.Success -> {
+                    dailyCover = dailSongs.read().data.dailySongs[0].al.picUrl
+                    indexViewModel.insertDailyImage(DailyImage(sdf, dailyCover))
                 }
+
+                DataState.Empty -> {}
+                is DataState.Error -> {}
+                DataState.Loading -> {}
+            }
 
 
         } else {
@@ -274,7 +277,7 @@ fun LargeButton(indexViewModel: IndexViewModel) {
             modifier = Modifier
                 .fillMaxWidth()
         ) {
-            if(userData.isVisitor){
+            if (userData.isVisitor) {
                 item {
 
                     RecommendCard(
@@ -285,7 +288,6 @@ fun LargeButton(indexViewModel: IndexViewModel) {
                     }
                 }
             }
-
 
 
 //            when (fmSongs) {
@@ -422,10 +424,9 @@ private fun RecommendCard(
 }
 
 
-
-
 @Composable
 private fun RecommendSong(indexViewModel: IndexViewModel) {
+
 
     val accountData = LocalUserData.current
     val context = LocalContext.current
@@ -434,6 +435,18 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
 
         when (dailSongs) {
             is DataState.Success -> {
+                fun play(index: Int) {
+                    val songs = dailSongs.read().data.dailySongs.map {
+                        MusicInfo(
+                            id = it.id,
+                            name = it.name,
+                            artist = it.ar.joinToString { it.name },
+                            musicUrl = "$RainMusicProtocol://music?id=${it.id}",
+                            artworkUrl = it.al.picUrl
+                        )
+                    }
+                    playMusics(context, songs, songs[index])
+                }
 
                 Column {
                     Row {
@@ -489,16 +502,7 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
                                     .padding(6.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable {
-                                        val track = dailSongs.read().data.dailySongs[0]
-                                        playMusic(
-                                            context, MusicInfo(
-                                                id = track.id,
-                                                name = track.name,
-                                                artist = track.ar.joinToString { it.name },
-                                                musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                                                artworkUrl = track.al.picUrl
-                                            )
-                                        )
+                                        play(0)
                                     },
                                 contentDescription = null
                             )
@@ -512,16 +516,7 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
                                     .padding(6.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable {
-                                        val track = dailSongs.read().data.dailySongs[1]
-                                        playMusic(
-                                            context, MusicInfo(
-                                                id = track.id,
-                                                name = track.name,
-                                                artist = track.ar.joinToString { it.name },
-                                                musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                                                artworkUrl = track.al.picUrl
-                                            )
-                                        )
+                                        play(1)
                                     },
                                 contentDescription = null
                             )
@@ -538,16 +533,7 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
                                 .padding(6.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .clickable {
-                                    val track = dailSongs.read().data.dailySongs[2]
-                                    playMusic(
-                                        context, MusicInfo(
-                                            id = track.id,
-                                            name = track.name,
-                                            artist = track.ar.joinToString { it.name },
-                                            musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                                            artworkUrl = track.al.picUrl
-                                        )
-                                    )
+                                    play(2)
                                 },
                             contentDescription = null
                         )
@@ -568,16 +554,7 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
                                     .padding(4.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable {
-                                        val track = dailSongs.read().data.dailySongs[i]
-                                        playMusic(
-                                            context, MusicInfo(
-                                                id = track.id,
-                                                name = track.name,
-                                                artist = track.ar.joinToString { it.name },
-                                                musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                                                artworkUrl = track.al.picUrl
-                                            )
-                                        )
+                                        play(i)
                                     },
                                 contentDescription = null
                             )
@@ -591,13 +568,11 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
 
             else -> {}
         }
+
     }
 
 
 }
-
-
-
 
 
 @ExperimentalFoundationApi

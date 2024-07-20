@@ -83,7 +83,8 @@ fun IndexScreen(
             }) {
                 Icon(Icons.AutoMirrored.Rounded.QueueMusic, null)
             }
-        }
+        },
+
     ) {
         Column {
             NetworkBanner(indexViewModel)

@@ -79,11 +79,7 @@ class MusicService : MediaLibraryService() {
         lifecycleScope.cancel()
         Log.d("onDestroy","onDestroy")
         val sharedPreferences = sharedPreferencesOf("last")
-        if(player.currentMediaItem?.mediaMetadata == null){
-            Log.d("onDestroy sharedPreferences","null")
-        }else{
-            Log.d("onDestroy sharedPreferences","not null")
-        }
+
         player.currentMediaItem?.mediaMetadata.let {
             sharedPreferences.edit {
                 putString("id", player.currentMediaItem?.mediaId)

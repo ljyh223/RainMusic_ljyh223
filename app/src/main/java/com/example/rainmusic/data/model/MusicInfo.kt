@@ -2,6 +2,7 @@ package com.example.rainmusic.data.model
 
 import android.net.Uri
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import com.example.rainmusic.util.RainMusicProtocol
 import com.example.rainmusic.util.media.buildMediaItem
 import com.example.rainmusic.util.media.metadata
@@ -13,14 +14,19 @@ data class MusicInfo(
     val musicUrl: String,
     val artworkUrl: String
 ) {
-    fun toMediaItem(): MediaItem = buildMediaItem(id.toString()) {
-        metadata {
-            setTitle(name)
-            setArtist(artist)
-
-            setUri(Uri.parse(musicUrl))
-            setArtworkUri(Uri.parse(artworkUrl))
-        }
+    fun toMediaItem(): MediaItem {
+        return MediaItem.Builder()
+            .setMediaId(id.toString())
+            .setUri(musicUrl)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(name)
+                    .setSubtitle(artist)
+                    .setArtist(artist)
+                    .setArtworkUri(Uri.parse(artworkUrl))
+                    .build()
+            )
+            .build()
     }
 
     companion object {

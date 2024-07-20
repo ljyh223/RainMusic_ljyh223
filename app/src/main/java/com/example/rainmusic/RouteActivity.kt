@@ -212,7 +212,6 @@ class RouteActivity : ComponentActivity() {
                 this.asyncGetSessionPlayer(MusicService::class.java) {
                     it.apply {
                         stop()
-                        clearMediaItems()
                         addMediaItem(
                             MusicInfo(
                                 id = id,

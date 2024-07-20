@@ -33,7 +33,7 @@ data class MusicUrl(
         @SerializedName("gain")
         val gain: Double,
         @SerializedName("id")
-        val id: Int,
+        val id: Long,
         @SerializedName("level")
         val level: Any,
         @SerializedName("md5")

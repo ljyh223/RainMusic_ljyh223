@@ -1,12 +1,16 @@
 package com.example.rainmusic.ui.screen.playlist
 
 import android.annotation.SuppressLint
-import android.content.Context
-import android.net.Uri
 import android.util.Log
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -17,12 +21,32 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -30,27 +54,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
-import coil.compose.rememberImagePainter
 import coil.request.ImageRequest
 import coil.size.Size
 import com.example.rainmusic.data.model.MusicInfo
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.example.rainmusic.data.retrofit.api.model.Track
-import com.example.rainmusic.service.MusicService
 import com.example.rainmusic.ui.component.PopBackIcon
 import com.example.rainmusic.ui.component.RainTopBar
-import com.example.rainmusic.ui.component.shimmerPlaceholder
-import com.example.rainmusic.ui.screen.dailysong.playMusic
 import com.example.rainmusic.ui.screen.dailysong.playMusics
-import com.example.rainmusic.ui.states.asyncGetSessionPlayer
 import com.example.rainmusic.util.RainMusicProtocol
-import com.example.rainmusic.util.media.buildMediaItem
-import com.example.rainmusic.util.media.metadata
-import com.example.rainmusic.util.okhttp.https
-import com.example.rainmusic.util.toast
+import kotlinx.coroutines.launch
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @ExperimentalMaterial3Api
@@ -66,10 +78,10 @@ fun PlaylistScreen(
     val lazyListState = rememberLazyListState()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val scope = rememberCoroutineScope()
-
+    val context= LocalContext.current
     Scaffold(
         topBar = {
-            PlaylistTopBar(playlistViewModel, scrollBehavior)
+            PlaylistTopBar(scrollBehavior)
         },
         floatingActionButton = {
             if (remember { derivedStateOf { lazyListState.firstVisibleItemIndex } }.value > 10) {
@@ -111,7 +123,19 @@ fun PlaylistScreen(
                         PlaylistMusic(
                             index = index + 1,
                             track = item
-                        )
+                        ){
+                            val songs = playlistDetail.read().playlist.tracks.map {i->
+                                MusicInfo(
+                                    id = i.id,
+                                    name = i.name,
+                                    artist = i.ar.joinToString { it.name } ,
+                                    musicUrl = "$RainMusicProtocol://music?id=${i.id}",
+                                    artworkUrl = i.al.picUrl
+                                )
+                            }
+                            playMusics(context, songs,songs[index])
+
+                        }
                     }
 
                 }
@@ -123,10 +147,8 @@ fun PlaylistScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlaylistTopBar(
-    playlistViewModel: PlaylistViewModel,
     scrollBehavior: TopAppBarScrollBehavior
 ) {
-    val playlistDetail by playlistViewModel.playlistDetail.collectAsState()
     RainTopBar(
         navigationIcon = {
             PopBackIcon()
@@ -270,9 +292,9 @@ private fun PlaylistAction(
 @Composable
 private fun PlaylistMusic(
     index: Int,
-    track: Track
+    track: Track,
+    onclick:()->Unit
 ) {
-    val context = LocalContext.current
     val name by remember {
         mutableStateOf(track.name)
     }
@@ -316,18 +338,7 @@ private fun PlaylistMusic(
                 )
             }
 
-            IconButton(onClick = {
-                playMusic(
-                    context,
-                    MusicInfo(
-                        id = track.id,
-                        name = track.name,
-                        artist = track.ar.joinToString(", ") { ar -> ar.name },
-                        musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                        artworkUrl = track.al.picUrl
-                    )
-                )
-            }) {
+            IconButton(onClick = onclick) {
                 Icon(Icons.Rounded.PlayArrow, null)
             }
         }

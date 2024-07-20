@@ -1,6 +1,8 @@
 package com.example.rainmusic.ui.screen.player
 
 import android.annotation.SuppressLint
+import android.graphics.Bitmap
+import android.graphics.drawable.Drawable
 import android.provider.ContactsContract.CommonDataKinds.Identity.IDENTITY
 import android.util.Log
 import androidx.compose.animation.core.Animatable
@@ -14,6 +16,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +47,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
@@ -60,6 +64,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -94,10 +99,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.rainmusic.data.retrofit.api.model.parse
 import com.example.rainmusic.service.MusicService
+import com.example.rainmusic.ui.component.AlertDialogOK
+import com.example.rainmusic.ui.component.Menu
 import com.example.rainmusic.ui.component.PopBackIcon
 import com.example.rainmusic.ui.component.RainTopBar
 import com.example.rainmusic.ui.local.LocalUserData
@@ -173,25 +181,13 @@ private fun PlayerUI(
     val currentMediaItem = rememberCurrentMediaItem(player)
     val progress = rememberPlayProgress(player)
     val isPlaying = rememberPlayState(player)
-    var containerColor by remember { mutableStateOf(Color.Unspecified) }
-
     val angle = remember { Animatable(0f) }
-
-
     val musicDetail by playerScreenViewModel.musicDetail.collectAsState()
-    val scope = rememberCoroutineScope()
     // 加载音乐信息
     LaunchedEffect(currentMediaItem) {
         Log.d("PlayerUI", "加载音乐信息")
         playerScreenViewModel.loadMusicDetail(currentMediaItem?.mediaId?.toLong() ?: 0L)
 
-        musicDetail.readSafely()?.let {
-            scope.launch {
-                val c = getImageDominantColor(it.songs[0].al.picUrl, context)
-                Log.d("PlayerUI", c.toString())
-                containerColor = Color(c)
-            }
-        }
     }
 
 
@@ -224,10 +220,11 @@ private fun PlayerUI(
                         maxLines = 1
                     )
                 }
+                val showMenu = remember { mutableStateOf(false) }
                 IconButton(onClick = {
-
+                    showMenu.value = true
                 }) {
-                    Icon(Icons.Rounded.Menu, null)
+                    Menu(showMenu = showMenu, musicDetail = musicDetail)
                 }
             }
         },
@@ -235,18 +232,27 @@ private fun PlayerUI(
         bottomBar = {
             BottomBar(playerScreenViewModel, progress, player, isPlaying, currentMediaItem)
         },
+    ) {
+        if (player.hasNextMediaItem()) {
+            player.apply {
+                rememberAsyncImagePainter(
+                    model = ImageRequest.Builder(context)
+                        .data(getMediaItemAt(nextMediaItemIndex).mediaMetadata.artworkUri.toString())
+                        .crossfade(true)
+                        .build()
+                )
 
-        ) {
+            }
+        }
         val backdropImage = rememberAsyncImagePainter(
             model = ImageRequest.Builder(context)
                 .data(musicDetail.readSafely()?.songs?.get(0)?.al?.picUrl?.smallImage())
                 .transformations(BlurTransformation(context, radius = 25f))
+                .crossfade(true)
                 .build()
         )
-
-
         val backdropColorFilter = remember {
-            val cm=ColorMatrix(
+            val cm = ColorMatrix(
                 floatArrayOf(
                     2f, 0f, 0f, 0f, 0f, // 红色通道的亮度增加
                     0f, 2f, 0f, 0f, 0f, // 绿色通道的亮度增加
@@ -262,6 +268,7 @@ private fun PlayerUI(
             painter = backdropImage,
             modifier = Modifier
                 .fillMaxSize()
+
                 .scale(scale = calculateScaleToFit())
                 .graphicsLayer { rotationZ = angle.value + 90f },
             colorFilter = backdropColorFilter,
@@ -271,9 +278,10 @@ private fun PlayerUI(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(0.5f) // 调整透明度
+                .alpha(0.5f)
                 .background(if (isSystemInDarkTheme()) Color.Black else Color.White)
         )
+
 
 
         LaunchedEffect(isPlaying) {
@@ -294,13 +302,15 @@ private fun PlayerUI(
                 .fillMaxSize()
                 .padding(it)
         ) { page ->
+
             when (page) {
                 // 封面
 
-                0 -> {
+                0 -> key(currentMediaItem) {
                     val cover = rememberAsyncImagePainter(
                         model = ImageRequest.Builder(context)
                             .data(musicDetail.readSafely()?.songs?.get(0)?.al?.picUrl)
+                            .crossfade(true)
                             .build()
                     )
                     Box(
@@ -314,26 +324,27 @@ private fun PlayerUI(
                             )
                         }
                         Image(
-                            painter =cover,
+                            painter = cover,
                             modifier = Modifier
                                 .graphicsLayer { rotationZ = angle.value }
                                 .clip(CircleShape)
                                 .fillMaxWidth(0.75f)
+
                                 .aspectRatio(1f),
-                            contentDescription = null
-                        )
+                            contentDescription = null,
+
+                            )
                     }
                 }
 
                 // 歌词
-                1 -> {
+                1 -> key(currentMediaItem) {
 
                     val lyric by playerScreenViewModel.lyric.collectAsState()
                     val lyricLines = lyric.readSafely()?.parse() ?: emptyList()
                     val lyricSharedPreferences = remember {
                         sharedPreferencesOf("lyric")
                     }
-
 
                     var currentLyricIndex by remember {
                         mutableIntStateOf(0)
@@ -363,9 +374,7 @@ private fun PlayerUI(
                                     Box(
                                         modifier = Modifier
                                             .height(maxHeight / 2)
-                                    ) {
-
-                                    }
+                                    )
                                 }
                             }
                             // 歌词主体
@@ -436,13 +445,14 @@ private fun PlayerUI(
                                 blackItem()
                                 lyricsEntryListItems()
                                 blackItem()
+
                             }
                             // 定位中间
                             LaunchedEffect(
                                 key1 = progress,
                                 key2 = currentTextElementHeightPx.intValue,
                                 block = {
-                                    kotlinx.coroutines.delay(200)
+                                    kotlinx.coroutines.delay(300)
                                     val height =
                                         (dp2px(maxHeight.value) - currentTextElementHeightPx.intValue) / 2
                                     lyricLines.indexOfLast { lyric ->
@@ -451,7 +461,6 @@ private fun PlayerUI(
                                         state.animateScrollToItem(
                                             (index + 1).coerceAtLeast(0),
                                             -height.toInt()
-
                                         )
                                         currentLyricIndex = index
                                     }
@@ -490,7 +499,7 @@ private fun BottomBar(
                 Alignment.CenterHorizontally
             )
         ) {
-            var showDialog by remember {
+            val showDialog = remember {
                 mutableStateOf(false)
             }
             ManipulatePlaylistDialog(
@@ -499,7 +508,7 @@ private fun BottomBar(
             )
             // 将歌曲添加到歌单
             IconButton(onClick = {
-                showDialog = true
+                showDialog.value = true
             }) {
                 Icon(
                     imageVector = Icons.Rounded.Add,
@@ -508,6 +517,7 @@ private fun BottomBar(
             }
             // 红心
             val likeList by playerScreenViewModel.likeList.collectAsState()
+
             IconButton(onClick = {
                 playerScreenViewModel.like(userData.id)
             }) {
@@ -595,6 +605,9 @@ private fun BottomBar(
         ) {
             IconButton(onClick = {
                 player.seekToPreviousMediaItem()
+                if (player.hasPreviousMediaItem()) {
+                    player.getMediaItemAt(player.previousMediaItemIndex).mediaMetadata.artworkUri
+                }
             }) {
                 Icon(
                     modifier = Modifier.size(72.dp),
@@ -634,8 +647,8 @@ private fun BottomBar(
 }
 
 @Composable
-private fun ManipulatePlaylistDialog(show: Boolean, musicId: Long) {
-    if (show) {
+private fun ManipulatePlaylistDialog(show: MutableState<Boolean>, musicId: Long) {
+    if (show.value) {
         AlertDialog(
             onDismissRequest = {},
             title = {
@@ -643,17 +656,23 @@ private fun ManipulatePlaylistDialog(show: Boolean, musicId: Long) {
             },
             text = {
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    // TODO: 加载歌单列表
+
                 }
             },
             confirmButton = {
-                TextButton(onClick = { /*TODO*/ }) {
+                TextButton(onClick = { show.value = false }) {
                     Text(text = "完成")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { show.value = false }) {
+                    Text(text = "取消")
                 }
             }
         )
     }
 }
+
 
 
 val Int.textDp: TextUnit

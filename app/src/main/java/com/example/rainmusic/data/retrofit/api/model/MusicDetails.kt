@@ -31,7 +31,7 @@ data class MusicDetails(
         @SerializedName("freeTrialPrivilege")
         val freeTrialPrivilege: FreeTrialPrivilege,
         @SerializedName("id")
-        val id: Int,
+        val id: Long,
         @SerializedName("maxbr")
         val maxbr: Int,
         @SerializedName("payed")

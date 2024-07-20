@@ -114,6 +114,7 @@ fun LibraryPage(indexViewModel: IndexViewModel) {
 
     Scaffold(
         topBar = { LibraryTopBar(scrollBehavior = scrollBehavior) }
+
     ){
         Box(
             modifier = Modifier

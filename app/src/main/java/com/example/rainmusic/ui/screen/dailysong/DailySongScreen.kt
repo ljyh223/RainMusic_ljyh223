@@ -3,17 +3,13 @@ package com.example.rainmusic.ui.screen.dailysong
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.ui.graphics.Color
-import android.net.Uri
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.*
@@ -31,8 +27,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import coil.size.Size
 import com.example.rainmusic.data.model.MusicInfo
@@ -45,8 +42,6 @@ import com.example.rainmusic.ui.component.shimmerPlaceholder
 import com.example.rainmusic.ui.states.asyncGetSessionPlayer
 import com.example.rainmusic.util.DataState
 import com.example.rainmusic.util.RainMusicProtocol
-import com.example.rainmusic.util.media.buildMediaItem
-import com.example.rainmusic.util.media.metadata
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,16 +63,14 @@ fun DailySongScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        val songs = ArrayList<MusicInfo>()
-                        dailySongs.read().data.dailySongs.forEach {
-                            songs.add(
-                                MusicInfo(
-                                    id = it.id,
-                                    name = it.name,
-                                    artist = it.ar.joinToString(separator = "/") { it.name } + if (it.al.name.isNotBlank()) " - ${it.al.name}" else "",
-                                    musicUrl = "$RainMusicProtocol://music?id=${it.id}",
-                                    artworkUrl = it.al.picUrl
-                                )
+
+                        val songs = dailySongs.read().data.dailySongs.map {
+                            MusicInfo(
+                                id = it.id,
+                                name = it.name,
+                                artist = it.ar.joinToString(separator = "/") { it.name } + if (it.al.name.isNotBlank()) " - ${it.al.name}" else "",
+                                musicUrl = "$RainMusicProtocol://music?id=${it.id}",
+                                artworkUrl = it.al.picUrl
                             )
                         }
                         playMusics(context, songs)
@@ -171,7 +164,18 @@ fun DailySongScreen(
                         }
                         itemsIndexed(it) { index, item ->
                             key(item.id) {
-                                PlaylistMusic(index + 1, item)
+                                PlaylistMusic(index + 1, item){
+                                    val songs = dailySongs.read().data.dailySongs.map { i ->
+                                        MusicInfo(
+                                            id = i.id,
+                                            name = i.name,
+                                            artist = i.ar.joinToString(separator = "/") { i.name } + if (i.al.name.isNotBlank()) " - ${i.al.name}" else "",
+                                            musicUrl = "$RainMusicProtocol://music?id=${i.id}",
+                                            artworkUrl = i.al.picUrl
+                                        )
+                                    }
+                                    playMusics(context, songs)
+                                }
                             }
 
                         }
@@ -210,7 +214,8 @@ fun DailySongScreen(
 @Composable
 private fun PlaylistMusic(
     index: Int,
-    track: DailyRecommendSongs.Data.DailySong
+    track: DailyRecommendSongs.Data.DailySong,
+    onclick: () -> Unit
 ) {
     val context = LocalContext.current
     val name by remember { mutableStateOf(track.name) }
@@ -255,51 +260,47 @@ private fun PlaylistMusic(
                 )
             }
 
-            IconButton(onClick = {
-                playMusic(
-                    context,
-                    MusicInfo(
-                        id = track.id,
-                        name = name,
-                        artist = singer,
-                        musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                        artworkUrl = track.al.picUrl
-                    )
-                )
-            }) {
+            IconButton(onClick = { onclick }) {
                 Icon(Icons.Rounded.PlayArrow, null)
             }
         }
     }
 }
 
-fun playMusic(context: Context, song: MusicInfo) {
-    context.asyncGetSessionPlayer(MusicService::class.java) {
-        it.apply {
-            stop()
-            clearMediaItems()
-            addMediaItem(song.toMediaItem())
-            prepare()
-            play()
-        }
+
+
+fun shufflePlaylist(songs: List<MusicInfo>, first: MusicInfo): List<MusicInfo> {
+
+    val shuffledSongs = songs.toMutableList()
+    shuffledSongs.shuffled()
+    val index = shuffledSongs.indexOf(first)
+    if (index > 0) {
+        shuffledSongs.removeAt(index)
+        shuffledSongs.add(0, first)
+    } else if (index != 0) {
+        // 如果元素不在列表中，直接添加到第一位
+        shuffledSongs.add(0, first)
     }
+
+    return shuffledSongs.toList()
 }
 
-
-fun playMusics(context: Context, songs: List<MusicInfo>) {
+fun playMusics(context: Context, songs: List<MusicInfo>,first: MusicInfo? = null) {
     context.asyncGetSessionPlayer(MusicService::class.java) {
         it.apply {
             // 停止当前播放
             stop()
             // 清除当前媒体列表
-            clearMediaItems()
-            val mediaList = songs.map { v ->
-                v.toMediaItem()
+//            clearMediaItems()
+            if(first!=null){
+                addMediaItems(shufflePlaylist(songs,first).map { i-> i.toMediaItem() }.toList())
+            }else{
+                addMediaItems(songs.map {  i-> i.toMediaItem() })
             }
-            // 添加媒体列表到播放器
-            addMediaItems(mediaList)
             // 准备播放器
             prepare()
+
+            playWhenReady = true
             // 开始播放
             play()
         }
