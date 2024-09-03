@@ -92,6 +92,12 @@ composeSettings-ui-extended = { group = "com.github.alorma.compose-settings", na
 composeSettings-storange-preferences = { group = "com.github.alorma", name = "compose-settings-storage-preferences", version = "1.0.3" }
 composeSettings-storange-base = { group = "com.github.alorma", name = "compose-settings-storage-base", version = "2.0.0" }
 gSlider={group="com.github.krottv",name="compose-sliders",version="0.1.4"}
+
+
+
+guava = { group = "com.google.guava", name = "guava", version = "33.0.0-android" }
+coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version = "1.7.3" }
+concurrent-futures = { group = "androidx.concurrent", name = "concurrent-futures-ktx", version = "1.2.0" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

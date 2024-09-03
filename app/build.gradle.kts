@@ -126,6 +126,11 @@ dependencies {
     implementation(libs.gSlider)
 
 
+    implementation(libs.guava)
+    implementation(libs.coroutines.guava)
+    implementation(libs.concurrent.futures)
+
+
     kapt(libs.hilt.compiler)
     ksp(libs.androidx.room.compiler)
 

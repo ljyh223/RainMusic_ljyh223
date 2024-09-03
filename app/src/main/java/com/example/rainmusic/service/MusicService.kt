@@ -1,11 +1,14 @@
 package com.example.rainmusic.service
 
 import android.app.PendingIntent
+import android.content.ComponentName
 import android.content.Intent
+import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Binder
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.core.content.getSystemService
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -15,32 +18,46 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.analytics.PlaybackStats
+import androidx.media3.exoplayer.analytics.PlaybackStatsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.session.MediaController
+import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionToken
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import com.example.rainmusic.RouteActivity
 import com.example.rainmusic.repo.MusicRepo
+import com.example.rainmusic.util.CoilBitmapLoader
 import com.example.rainmusic.util.DataState
 import com.example.rainmusic.util.RainMusicProtocol
 import com.example.rainmusic.util.okhttp.https
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
+import kotlinx.coroutines.flow.combine
 import java.io.IOException
 import javax.inject.Inject
 
 private const val TAG = "MusicService"
 
 @AndroidEntryPoint
-class MusicService : MediaSessionService() {
+class MusicService : MediaLibraryService(),
+    Player.Listener,
+    PlaybackStatsListener.Callback {
     @Inject
     lateinit var musicRepo: MusicRepo
     private val lifecycleScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private lateinit var player: ExoPlayer
-    private lateinit var mediaSession: MediaSession
+    private lateinit var mediaSession: MediaLibrarySession
+
+    private lateinit var connectivityManager: ConnectivityManager
+
 
     @OptIn(UnstableApi::class)
     override fun onCreate() {
@@ -74,8 +91,7 @@ class MusicService : MediaSessionService() {
         //重复播放
         player.repeatMode = Player.REPEAT_MODE_ALL
 
-        mediaSession = MediaSession.Builder(this, player)
-            .setCallback(MediaSessionCallback())
+        mediaSession = MediaLibrarySession.Builder(this, player,MediaSessionCallback())
             .setSessionActivity(
                 PendingIntent.getActivity(
                     this,
@@ -84,7 +100,18 @@ class MusicService : MediaSessionService() {
                     PendingIntent.FLAG_IMMUTABLE
                 )
             )
+            .setBitmapLoader(CoilBitmapLoader(this, lifecycleScope))
             .build()
+
+        val sessionToken = SessionToken(this, ComponentName(this, MusicService::class.java))
+        val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
+        controllerFuture.addListener({ controllerFuture.get() }, MoreExecutors.directExecutor())
+
+
+        connectivityManager = getSystemService()!!
+
+
+
     }
 
     override fun onDestroy() {
@@ -98,7 +125,7 @@ class MusicService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo)= mediaSession
 
 
-    private inner class MediaSessionCallback : MediaSession.Callback {
+    private inner class MediaSessionCallback :  MediaLibrarySession.Callback {
         override fun onAddMediaItems(
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo,
@@ -163,5 +190,12 @@ class MusicService : MediaSessionService() {
     inner class MusicBinder : Binder() {
         val service: MusicService
             get() = this@MusicService
+    }
+
+    override fun onPlaybackStatsReady(
+        eventTime: AnalyticsListener.EventTime,
+        playbackStats: PlaybackStats
+    ) {
+        TODO("Not yet implemented")
     }
 }
