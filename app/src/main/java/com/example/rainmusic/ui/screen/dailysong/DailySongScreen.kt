@@ -68,7 +68,7 @@ fun DailySongScreen(
                             MusicInfo(
                                 id = it.id,
                                 name = it.name,
-                                artist = it.ar.joinToString(separator = "/") { it.name } + if (it.al.name.isNotBlank()) " - ${it.al.name}" else "",
+                                artist = it.ar.joinToString(separator = " ") { it.name } ,
                                 musicUrl = "$RainMusicProtocol://music?id=${it.id}",
                                 artworkUrl = it.al.picUrl
                             )
@@ -169,7 +169,7 @@ fun DailySongScreen(
                                         MusicInfo(
                                             id = i.id,
                                             name = i.name,
-                                            artist = i.ar.joinToString(separator = "/") { i.name } + if (i.al.name.isNotBlank()) " - ${i.al.name}" else "",
+                                            artist = i.ar.joinToString(separator = " ") { i.name },
                                             musicUrl = "$RainMusicProtocol://music?id=${i.id}",
                                             artworkUrl = i.al.picUrl
                                         )

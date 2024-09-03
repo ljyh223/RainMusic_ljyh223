@@ -11,6 +11,9 @@ sealed class Screen(val route: String) {
     object DailySong: Screen("dailysong")
 
     object Setting: Screen("setting")
+
+    object ForYou: Screen("foryou")
+    object Library: Screen("library")
     object Test : Screen("test")
 
     inline fun navigate(

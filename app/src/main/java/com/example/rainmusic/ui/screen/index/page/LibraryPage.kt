@@ -68,6 +68,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
@@ -83,6 +84,7 @@ import com.example.rainmusic.data.paging.TopPlaylistPagingSource
 import com.example.rainmusic.data.retrofit.api.model.UserPlaylists
 import com.example.rainmusic.data.retrofit.weapi.model.PlaylistCategory
 import com.example.rainmusic.ui.component.AppBarStyle
+import com.example.rainmusic.ui.component.PlayerBottomBar
 import com.example.rainmusic.ui.component.RainTopBar
 import com.example.rainmusic.ui.component.shimmerPlaceholder
 import com.example.rainmusic.ui.local.LocalNavController
@@ -90,6 +92,7 @@ import com.example.rainmusic.ui.local.LocalUserData
 import com.example.rainmusic.ui.screen.Screen
 import com.example.rainmusic.ui.screen.index.IndexViewModel
 import com.example.rainmusic.ui.states.items
+import com.example.rainmusic.ui.viewmodel.ShareViewModel
 import com.example.rainmusic.util.DataState
 import com.example.rainmusic.util.smallImage
 import okhttp3.internal.filterList
@@ -99,11 +102,12 @@ import okhttp3.internal.filterList
     ExperimentalFoundationApi::class, ExperimentalAnimationApi::class
 )
 @Composable
-fun LibraryPage(indexViewModel: IndexViewModel) {
+fun LibraryPage(indexViewModel: IndexViewModel= hiltViewModel(),shareViewModel: ShareViewModel=hiltViewModel()) {
     val userData = LocalUserData.current
     var currentTab by remember { mutableIntStateOf(0) }
     val playlists by indexViewModel.userPlaylist.collectAsState()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val musicControllerUiState=shareViewModel.musicControllerUiState
     LaunchedEffect(userData) {
 
         if (playlists !is DataState.Success) {
@@ -113,7 +117,17 @@ fun LibraryPage(indexViewModel: IndexViewModel) {
     }
 
     Scaffold(
-        topBar = { LibraryTopBar(scrollBehavior = scrollBehavior) }
+        topBar = { LibraryTopBar(scrollBehavior = scrollBehavior) },
+//        bottomBar = {
+//            PlayerBottomBar(
+//                onEvent = shareViewModel::onEvent,
+//                playerState= musicControllerUiState,
+//                song = musicControllerUiState.currentSong,
+//                onBarClick = {
+//
+//                }
+//            )
+//        }
 
     ){
         Box(

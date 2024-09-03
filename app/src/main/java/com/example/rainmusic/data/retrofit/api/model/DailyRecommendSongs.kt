@@ -91,7 +91,7 @@ data class DailyRecommendSongs(
             @SerializedName("rurl")
             val rurl: Any,
             @SerializedName("s_id")
-            val sId: Int,
+            val sId: Long,
             @SerializedName("single")
             val single: Int,
             @SerializedName("st")

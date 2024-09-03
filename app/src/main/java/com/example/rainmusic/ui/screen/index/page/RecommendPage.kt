@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,13 +54,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.size.Size
 import com.example.myapplication.R
 import com.example.rainmusic.data.model.DailyImage
 import com.example.rainmusic.data.model.MusicInfo
+import com.example.rainmusic.data.model.Song
+import com.example.rainmusic.data.model.toSongs
 import com.example.rainmusic.data.retrofit.weapi.model.PersonalizedPlaylist
+import com.example.rainmusic.service.MusicEvent
 import com.example.rainmusic.ui.component.AppBarStyle
 import com.example.rainmusic.ui.component.PlayerBottomBar
 import com.example.rainmusic.ui.component.RainTopBar
@@ -69,6 +74,7 @@ import com.example.rainmusic.ui.local.LocalUserData
 import com.example.rainmusic.ui.screen.Screen
 import com.example.rainmusic.ui.screen.dailysong.playMusics
 import com.example.rainmusic.ui.screen.index.IndexViewModel
+import com.example.rainmusic.ui.viewmodel.ShareViewModel
 import com.example.rainmusic.util.DataState
 import com.example.rainmusic.util.RainMusicProtocol
 import com.example.rainmusic.util.color.getImageDominantColor
@@ -86,20 +92,30 @@ import kotlinx.coroutines.launch
 )
 @Composable
 fun IndexPage(
-    indexViewModel: IndexViewModel
+    indexViewModel: IndexViewModel=hiltViewModel(),
+    shareViewModel: ShareViewModel=hiltViewModel(),
 ) {
     val recommendStatus by indexViewModel.personalizedPlaylist.collectAsState()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val userData = LocalUserData.current
+    val musicControllerUiState = shareViewModel.musicControllerUiState
+//    val localPlaylist by shareViewModel.localPlaylist.collectAsState()
     LaunchedEffect(userData) {
         Log.d("IndexPage", recommendStatus.notLoaded().toString())
         indexViewModel.getAccountDetails()
+        shareViewModel.getPlaylist()
         if (!userData.isVisitor) {
             if (recommendStatus.notLoaded()) {
                 indexViewModel.refreshIndexPage()
+//                shareViewModel.getPlaylist()
             }
         }
     }
+//    localPlaylist.takeIf { it.isNotEmpty() }?.let {
+//        shareViewModel.onEvent(MusicEvent.AddSongs(it.toSongs()))
+//        shareViewModel.onEvent(MusicEvent.PlaySong(1))
+//    }
+
 
     Scaffold(
         topBar = {
@@ -109,7 +125,14 @@ fun IndexPage(
         },
 
         bottomBar = {
-            PlayerBottomBar()
+            PlayerBottomBar(
+                onEvent = shareViewModel::onEvent,
+                playerState= musicControllerUiState,
+                song = musicControllerUiState.currentSong,
+                onBarClick = {
+
+                }
+            )
         }
     ) {
 
@@ -127,7 +150,7 @@ fun IndexPage(
                 }
 
                 item {
-                    RecommendSong(indexViewModel)
+                    RecommendSong(indexViewModel,shareViewModel::onEvent)
                 }
 
                 item {
@@ -164,7 +187,7 @@ private fun RecommendPlayLists(
             ) {
                 when (personalizedPlaylist) {
                     is DataState.Success -> {
-                        items(personalizedPlaylist.read().result) {
+                        items(personalizedPlaylist.read().result,key = { it.id }) { it ->
                             PlaylistCard(it)
                         }
                     }
@@ -254,7 +277,7 @@ fun LargeButton(indexViewModel: IndexViewModel) {
         val sdf = sdf_
         val dailyImage by indexViewModel.getDailyImage(sdf).collectAsState(initial = null)
         if (dailyImage == null) {
-            Log.d("dailyImage", "null")
+//            Log.d("dailyImage", "null")
             val dailSongs by indexViewModel.dailySongs.collectAsState()
             when (dailSongs) {
                 is DataState.Success -> {
@@ -269,7 +292,7 @@ fun LargeButton(indexViewModel: IndexViewModel) {
 
 
         } else {
-            Log.d("dailyImage", "")
+//            Log.d("dailyImage", "")
             dailyCover = dailyImage!!.imageUrl
         }
         val navController = LocalNavController.current
@@ -425,7 +448,7 @@ private fun RecommendCard(
 
 
 @Composable
-private fun RecommendSong(indexViewModel: IndexViewModel) {
+private fun RecommendSong(indexViewModel: IndexViewModel,onEvent:(MusicEvent)->Unit) {
 
 
     val accountData = LocalUserData.current
@@ -437,130 +460,155 @@ private fun RecommendSong(indexViewModel: IndexViewModel) {
             is DataState.Success -> {
                 fun play(index: Int) {
                     val songs = dailSongs.read().data.dailySongs.map {
-                        MusicInfo(
-                            id = it.id,
-                            name = it.name,
-                            artist = it.ar.joinToString { it.name },
-                            musicUrl = "$RainMusicProtocol://music?id=${it.id}",
-                            artworkUrl = it.al.picUrl
+
+//                        MusicInfo(
+//                            id = it.id,
+//                            name = it.name,
+//                            artist = it.ar.joinToString { it.name },
+//                            musicUrl = "$RainMusicProtocol://music?id=${it.id}",
+//                            artworkUrl = it.al.picUrl
+//                        )
+//
+                        Song(
+                            mediaId = it.id.toString(),
+                            title=it.name,
+                            subtitle = it.ar.joinToString { it.name },
+                            songUrl = "$RainMusicProtocol://music?id=${it.id}",
+                            imageUrl=it.al.picUrl
                         )
                     }
-                    playMusics(context, songs, songs[index])
+                    onEvent(MusicEvent.AddSongs(songs))
+                    onEvent(MusicEvent.PlaySong(index))
+//                    playMusics(context, songs, songs[index])
                 }
 
-                Column {
-                    Row {
-                        Surface(
-                            modifier = Modifier
-                                .weight(2f)
-                                .aspectRatio(1f)
-                                .padding(start = 0.dp, top = 4.dp, end = 4.dp, bottom = 4.dp)
-                                .clickable {
+                key(true){
+                    Column {
+                        Row {
+                            Surface(
+                                modifier = Modifier
+                                    .weight(2f)
+                                    .aspectRatio(1f)
+                                    .padding(start = 0.dp, top = 4.dp, end = 4.dp, bottom = 4.dp)
+                                    .clickable {
 
-                                    val songs =
-                                        dailSongs.read().data.dailySongs
-                                            .subList(5, 13)
-                                            .map { track ->
-                                                MusicInfo(
-                                                    id = track.id,
-                                                    name = track.name,
-                                                    artist = track.ar.joinToString { it.name },
-                                                    musicUrl = "$RainMusicProtocol://music?id=${track.id}",
-                                                    artworkUrl = track.al.picUrl
-                                                )
-                                            }
-                                    playMusics(context, songs)
-                                },
-                            tonalElevation = 12.dp,
-                            shape = RoundedCornerShape(16.dp)
+                                        val songs =
+                                            dailSongs.read().data.dailySongs
+                                                .subList(5, 13)
+                                                .map { track ->
+//                                                MusicInfo(
+//                                                    id = track.id,
+//                                                    name = track.name,
+//                                                    artist = track.ar.joinToString { it.name },
+//                                                    musicUrl = "$RainMusicProtocol://music?id=${track.id}",
+//                                                    artworkUrl = track.al.picUrl
+//                                                )
 
-                        ) {
+                                                    Song(
+                                                        mediaId = track.id.toString(),
+                                                        title = track.name,
+                                                        subtitle = track.ar.joinToString { it.name },
+                                                        songUrl = "$RainMusicProtocol://music?id=${track.id}",
+                                                        imageUrl = track.al.picUrl
+                                                    )
+                                                }
+
+                                        onEvent(MusicEvent.AddSongs(songs))
+                                        onEvent(MusicEvent.PlaySong(0))
+//                                    playMusics(context, songs)
+                                    },
+                                tonalElevation = 12.dp,
+                                shape = RoundedCornerShape(16.dp)
+
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .padding(8.dp)
+                                ) {
+                                    Text(
+                                        text = "推荐",
+                                        fontSize = 48.sp,
+                                        color = colorResource(R.color.light_blue_A700)
+                                    )
+                                    Text(text = "歌曲", fontSize = 48.sp)
+                                }
+                            }
+
                             Column(
                                 modifier = Modifier
-                                    .padding(8.dp)
-                            ) {
-                                Text(
-                                    text = "推荐",
-                                    fontSize = 48.sp,
-                                    color = colorResource(R.color.light_blue_A700)
-                                )
-                                Text(text = "歌曲", fontSize = 48.sp)
-                            }
-                        }
-
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                        ) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(dailSongs.read().data.dailySongs[0].al.picUrl.middleImage())
-                                    .size(Size.ORIGINAL) // 根据需要调整大小
-                                    .build(),
-                                modifier = Modifier
-                                    .aspectRatio(1f)
-                                    .padding(6.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        play(0)
-                                    },
-                                contentDescription = null
-                            )
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(dailSongs.read().data.dailySongs[1].al.picUrl.middleImage())
-                                    .size(Size.ORIGINAL) // 根据需要调整大小
-                                    .build(),
-                                modifier = Modifier
-                                    .aspectRatio(1f)
-                                    .padding(6.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        play(1)
-                                    },
-                                contentDescription = null
-                            )
-                        }
-
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(dailSongs.read().data.dailySongs[2].al.picUrl.largeImage())
-                                .size(Size.ORIGINAL) // 根据需要调整大小
-                                .build(),
-                            modifier = Modifier
-                                .weight(2f)
-                                .aspectRatio(1f)
-                                .padding(6.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable {
-                                    play(2)
-                                },
-                            contentDescription = null
-                        )
-
-                    }
-
-                    Row {
-
-                        for (i in 3..7) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(dailSongs.read().data.dailySongs[i].al.picUrl.middleImage())
-                                    .size(Size.ORIGINAL) // 根据需要调整大小
-                                    .build(),
-                                modifier = Modifier
                                     .weight(1f)
+                            ) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(dailSongs.read().data.dailySongs[0].al.picUrl.middleImage())
+                                        .size(Size.ORIGINAL) // 根据需要调整大小
+                                        .build(),
+                                    modifier = Modifier
+                                        .aspectRatio(1f)
+                                        .padding(6.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            play(0)
+                                        },
+                                    contentDescription = null
+                                )
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(dailSongs.read().data.dailySongs[1].al.picUrl.middleImage())
+                                        .size(Size.ORIGINAL) // 根据需要调整大小
+                                        .build(),
+                                    modifier = Modifier
+                                        .aspectRatio(1f)
+                                        .padding(6.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            play(1)
+                                        },
+                                    contentDescription = null
+                                )
+                            }
+
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(dailSongs.read().data.dailySongs[2].al.picUrl.largeImage())
+                                    .size(Size.ORIGINAL) // 根据需要调整大小
+                                    .build(),
+                                modifier = Modifier
+                                    .weight(2f)
                                     .aspectRatio(1f)
-                                    .padding(4.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .padding(6.dp)
+                                    .clip(RoundedCornerShape(16.dp))
                                     .clickable {
-                                        play(i)
+                                        play(2)
                                     },
                                 contentDescription = null
                             )
+
+                        }
+
+                        Row {
+
+                            for (i in 3..7) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(dailSongs.read().data.dailySongs[i].al.picUrl.middleImage())
+                                        .size(Size.ORIGINAL) // 根据需要调整大小
+                                        .build(),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .padding(4.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            play(i)
+                                        },
+                                    contentDescription = null
+                                )
+                            }
                         }
                     }
                 }
+
             }
 
             is DataState.Loading -> {

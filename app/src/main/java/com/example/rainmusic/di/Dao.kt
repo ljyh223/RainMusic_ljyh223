@@ -10,20 +10,20 @@ import androidx.room.RoomDatabase
 import androidx.room.Room
 import com.example.rainmusic.data.model.DailyImage
 import com.example.rainmusic.data.model.ImageColor
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
+import com.example.rainmusic.data.model.LocalSong
+import com.example.rainmusic.util.DataState
 import kotlinx.coroutines.flow.Flow
 
-@Database(entities = [ImageColor::class,DailyImage::class], version = 2,exportSchema=false)
+@Database(
+    entities = [ImageColor::class, DailyImage::class, LocalSong::class],
+    version = 3,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun ImageColorDao(): ImageColorDao
     abstract fun DailyImageDao(): DailyImageDao
     abstract fun ImageColorDao1(): ImageColorDao1
-
-
+    abstract fun LocalPlaylistDao(): LocalPlaylistDao
 
 
     companion object {
@@ -53,6 +53,16 @@ interface ImageColorDao {
     @Query("SELECT * FROM image_colors WHERE url = :url")
     fun getImageColor(url: String): Flow<ImageColor?>
 }
+
+@Dao
+interface LocalPlaylistDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPlaylist(playlist: List<LocalSong>)
+
+    @Query("SELECT * FROM playlist")
+    fun getPlaylist(): Flow<List<LocalSong>>
+}
+
 @Dao
 interface ImageColorDao1 {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -72,18 +82,3 @@ interface DailyImageDao {
     fun getDailyImage(date: String): Flow<DailyImage?>
 }
 
-@Module
-@InstallIn(SingletonComponent::class)
-object AppModule {
-    @Provides
-    fun provideDatabase(@ApplicationContext appContext: Context): AppDatabase =
-        Room.databaseBuilder(appContext, AppDatabase::class.java, "app_database").build()
-
-    @Provides
-    fun provideImageColorRepository(db: AppDatabase): ImageColorRepository =
-        ImageColorRepository(db.ImageColorDao())
-
-    @Provides
-    fun provideDailyImageRepository(db: AppDatabase): DailyImageRepository =
-        DailyImageRepository(db.DailyImageDao())
-}

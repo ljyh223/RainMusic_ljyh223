@@ -123,6 +123,8 @@ dependencies {
     implementation(libs.composeSettings.storange.preferences)
     implementation(libs.composeSettings.storange.base)
 
+    implementation(libs.gSlider)
+
 
     kapt(libs.hilt.compiler)
     ksp(libs.androidx.room.compiler)

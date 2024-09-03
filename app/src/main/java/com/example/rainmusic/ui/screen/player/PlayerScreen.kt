@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -85,6 +86,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorFilter.Companion.colorMatrix
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -95,6 +97,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -105,6 +108,7 @@ import coil.request.ImageRequest
 import com.example.rainmusic.data.retrofit.api.model.parse
 import com.example.rainmusic.service.MusicService
 import com.example.rainmusic.ui.component.AlertDialogOK
+import com.example.rainmusic.ui.component.CustomAudioProgressBar
 import com.example.rainmusic.ui.component.Menu
 import com.example.rainmusic.ui.component.PopBackIcon
 import com.example.rainmusic.ui.component.RainTopBar
@@ -118,6 +122,7 @@ import com.example.rainmusic.util.calculateScaleToFit
 import com.example.rainmusic.util.color.getImageDominantColor
 import com.example.rainmusic.util.dp2px
 import com.example.rainmusic.util.formatAsPlayerTime
+import com.example.rainmusic.util.imageWithDynamicFilter
 import com.example.rainmusic.util.sharedPreferencesOf
 import com.example.rainmusic.util.smallImage
 import com.smarttoolfactory.slider.ColorfulSlider
@@ -129,9 +134,11 @@ import kotlin.math.roundToLong
 @ExperimentalMaterial3Api
 @Composable
 fun PlayerScreen(
+
     playerScreenViewModel: PlayerScreenViewModel = hiltViewModel()
 ) {
     val player by rememberMediaSessionPlayer(MusicService::class.java)
+
     val userData = LocalUserData.current
     LaunchedEffect(userData) {
         playerScreenViewModel.loadLikeList(userData.id)
@@ -179,6 +186,7 @@ private fun PlayerUI(
     val context = LocalContext.current
     val pagerState = rememberPagerState(pageCount = { 2 })
     val currentMediaItem = rememberCurrentMediaItem(player)
+
     val progress = rememberPlayProgress(player)
     val isPlaying = rememberPlayState(player)
     val angle = remember { Animatable(0f) }
@@ -186,7 +194,7 @@ private fun PlayerUI(
     // 加载音乐信息
     LaunchedEffect(currentMediaItem) {
         Log.d("PlayerUI", "加载音乐信息")
-        playerScreenViewModel.loadMusicDetail(currentMediaItem?.mediaId?.toLong() ?: 0L)
+        playerScreenViewModel.loadMusicDetail(currentMediaItem?.mediaId?.toUri()?.getQueryParameter("id")?.toLong() ?: 0L)
 
     }
 
@@ -251,13 +259,16 @@ private fun PlayerUI(
                 .crossfade(true)
                 .build()
         )
+
+
+
         val backdropColorFilter = remember {
             val cm = ColorMatrix(
                 floatArrayOf(
                     2f, 0f, 0f, 0f, 0f, // 红色通道的亮度增加
                     0f, 2f, 0f, 0f, 0f, // 绿色通道的亮度增加
                     0f, 0f, 2f, 0f, 0f, // 蓝色通道的亮度增加
-                    0f, 0f, 0f, 1f, 0f    // 透明度保持不变
+                    0f, 0f, 0f, 2f, 0f    // 透明度保持不变
                 )
             )
             cm.setToSaturation(2.5f)
@@ -271,7 +282,7 @@ private fun PlayerUI(
 
                 .scale(scale = calculateScaleToFit())
                 .graphicsLayer { rotationZ = angle.value + 90f },
-            colorFilter = backdropColorFilter,
+            colorFilter = imageWithDynamicFilter(),
             contentDescription = null,
         )
 
@@ -317,12 +328,7 @@ private fun PlayerUI(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        musicDetail.readSafely()?.songs?.get(0)?.al?.picUrl?.let { it1 ->
-                            Log.d(
-                                "Cover",
-                                it1
-                            )
-                        }
+                        musicDetail.readSafely()?.songs?.get(0)?.al?.picUrl?.let { it1 -> }
                         Image(
                             painter = cover,
                             modifier = Modifier
@@ -504,7 +510,7 @@ private fun BottomBar(
             }
             ManipulatePlaylistDialog(
                 show = showDialog,
-                musicId = currentMediaItem?.mediaId?.toLong() ?: 0L
+                musicId = currentMediaItem?.mediaId?.toUri()?.getQueryParameter("id")?.toLong() ?: 0L
             )
             // 将歌曲添加到歌单
             IconButton(onClick = {
@@ -523,7 +529,7 @@ private fun BottomBar(
             }) {
                 Icon(
                     imageVector = if (likeList.readSafely()?.ids?.contains(
-                            currentMediaItem?.mediaId?.toLong() ?: 0
+                            currentMediaItem?.mediaId?.toUri()?.getQueryParameter("id")?.toLong() ?: 0
                         ) == true
                     ) {
                         Icons.Rounded.Favorite
@@ -560,24 +566,18 @@ private fun BottomBar(
                 }
             }
         }
+        val percent: Float = progress?.let { (it.first * 100f / it.second) / 100f } ?: 0f
+        var valueChanger by remember(percent) {
+            mutableFloatStateOf(percent)
+        }
         // 进度条
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            val percent: Float = progress?.let { (it.first * 100f / it.second) / 100f } ?: 0f
-
-            Text(text = progress?.first?.formatAsPlayerTime() ?: "00:00")
-            var valueChanger by remember(percent) {
-                mutableFloatStateOf(percent)
-            }
-
+        key(percent) {
             ColorfulSlider(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .fillMaxWidth(),
                 value = valueChanger,
-                thumbRadius = 5.dp,
-                trackHeight = 12.dp,
+                thumbRadius = 0.dp,
+                trackHeight = 4.dp,
                 onValueChange = { value ->
                     valueChanger = value
                 },
@@ -590,6 +590,16 @@ private fun BottomBar(
                 },
                 colors = MaterialSliderDefaults.materialColors()
             )
+        }
+
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+//            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(text = progress?.first?.formatAsPlayerTime() ?: "00:00")
+            Spacer(modifier = Modifier.weight(1f))
             Text(text = progress?.second?.formatAsPlayerTime() ?: "00:00")
         }
         // 播放控制栏

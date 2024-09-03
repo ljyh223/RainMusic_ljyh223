@@ -678,7 +678,7 @@ data class OriginSongSimpleData(
     val albumMeta: AlbumMeta,
     val artists: List<Artist>,
     val name: String,
-    val songId: Int
+    val songId: Long
 )
 
 data class Sq(

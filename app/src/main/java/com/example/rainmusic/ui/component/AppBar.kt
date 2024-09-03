@@ -82,11 +82,7 @@ fun RainBottomNavigation(
         CompositionLocalProvider(
             LocalAbsoluteTonalElevation provides LocalAbsoluteTonalElevation.current - 3.dp
         ) {
-            NavigationBar(
-                modifier = Modifier.padding(
-                    WindowInsets.navigationBars.asPaddingValues()
-                )
-            ) {
+            NavigationBar{
                 content()
             }
         }

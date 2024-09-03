@@ -57,10 +57,14 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.size.Size
 import com.example.rainmusic.data.model.MusicInfo
+import com.example.rainmusic.data.model.Song
 import com.example.rainmusic.data.retrofit.api.model.Track
+import com.example.rainmusic.service.MusicEvent
+import com.example.rainmusic.ui.component.PlayerBottomBar
 import com.example.rainmusic.ui.component.PopBackIcon
 import com.example.rainmusic.ui.component.RainTopBar
 import com.example.rainmusic.ui.screen.dailysong.playMusics
+import com.example.rainmusic.ui.viewmodel.ShareViewModel
 import com.example.rainmusic.util.RainMusicProtocol
 import kotlinx.coroutines.launch
 
@@ -69,7 +73,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun PlaylistScreen(
     id: Long,
-    playlistViewModel: PlaylistViewModel = hiltViewModel()
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    shareViewModel: ShareViewModel= hiltViewModel(),
 ) {
     LaunchedEffect(id) {
         playlistViewModel.loadPlaylist(id)
@@ -77,6 +82,7 @@ fun PlaylistScreen(
 
     val lazyListState = rememberLazyListState()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val musicControllerUiState=shareViewModel.musicControllerUiState
     val scope = rememberCoroutineScope()
     val context= LocalContext.current
     Scaffold(
@@ -96,6 +102,16 @@ fun PlaylistScreen(
                     Icon(Icons.Rounded.ArrowUpward, null)
                 }
             }
+        },
+        bottomBar = {
+            PlayerBottomBar(
+                onEvent = shareViewModel::onEvent,
+                playerState= musicControllerUiState,
+                song = musicControllerUiState.currentSong,
+                onBarClick = {
+
+                }
+            )
         }
     ) { paddingValues ->
         val playlistDetail by playlistViewModel.playlistDetail.collectAsState()
@@ -108,16 +124,17 @@ fun PlaylistScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             state = lazyListState
         ) {
-            item {
+            item(key=id) {
                 PlaylistInfo(playlistViewModel)
             }
 
-            item {
+            item(true) {
                 PlaylistAction(playlistViewModel)
             }
 
             Log.d("PlaylistScreen", "re")
             playlistDetail.readSafely()?.let {
+
                 itemsIndexed(it.playlist.tracks) { index, item ->
                     key(item.id) {
                         PlaylistMusic(
@@ -125,16 +142,19 @@ fun PlaylistScreen(
                             track = item
                         ){
                             val songs = playlistDetail.read().playlist.tracks.map {i->
-                                MusicInfo(
-                                    id = i.id,
-                                    name = i.name,
-                                    artist = i.ar.joinToString { it.name } ,
-                                    musicUrl = "$RainMusicProtocol://music?id=${i.id}",
-                                    artworkUrl = i.al.picUrl
+
+
+                                Song(
+                                    mediaId = i.id.toString(),
+                                    title=i.name,
+                                    subtitle = i.ar.joinToString(" ") { i.name },
+                                    songUrl = "$RainMusicProtocol://music?id=${i.id}",
+                                    imageUrl=i.al.picUrl
                                 )
                             }
-                            playMusics(context, songs,songs[index])
-
+//                            playMusics(context, songs,songs[index])
+                            shareViewModel.onEvent(MusicEvent.AddSongs(songs))
+                            shareViewModel.onEvent(MusicEvent.PlaySong(index))
                         }
                     }
 
@@ -255,7 +275,7 @@ private fun PlaylistAction(
                     MusicInfo(
                         id = track.id,
                         name = track.name,
-                        artist = track.ar.joinToString(", ") { ar -> ar.name },
+                        artist = track.ar.joinToString(" ") { ar -> ar.name },
                         musicUrl = "$RainMusicProtocol://music?id=${track.id}",
                         artworkUrl = track.al.picUrl
                     )
@@ -299,7 +319,7 @@ private fun PlaylistMusic(
         mutableStateOf(track.name)
     }
     val singer by remember {
-        mutableStateOf(track.ar.joinToString(separator = "/") { it.name } + if (track.al.name.isNotBlank()) " - ${track.al.name}" else "")
+        mutableStateOf(track.ar.joinToString(separator = " ") { it.name } )
     }
     Surface(
         modifier = Modifier
@@ -330,11 +350,13 @@ private fun PlaylistMusic(
             ) {
                 Text(
                     text = name,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1
                 )
                 Text(
                     text = singer,
-                    style = MaterialTheme.typography.labelMedium
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1
                 )
             }
 
